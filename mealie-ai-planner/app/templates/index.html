@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mealie AI Planner</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; color: #333; }
+    header { background: #2e7d32; color: white; padding: 1rem 1.5rem; }
+    header h1 { font-size: 1.4rem; font-weight: 600; }
+    .container { max-width: 860px; margin: 1.5rem auto; padding: 0 1rem; display: flex; flex-direction: column; gap: 1.5rem; }
+    .card { background: white; border-radius: 8px; padding: 1.25rem 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+    .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; color: #2e7d32; border-bottom: 1px solid #e0e0e0; padding-bottom: .5rem; }
+    .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem .75rem; font-size: .875rem; }
+    .config-grid .label { color: #666; }
+    .config-grid .value { font-weight: 500; }
+    .form-row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 1rem; }
+    .form-group { display: flex; flex-direction: column; gap: .3rem; }
+    .form-group label { font-size: .8rem; color: #555; font-weight: 500; }
+    .form-group input { padding: .45rem .6rem; border: 1px solid #ccc; border-radius: 5px; font-size: .9rem; }
+    .btn { background: #2e7d32; color: white; border: none; padding: .55rem 1.2rem; border-radius: 5px; font-size: .9rem; cursor: pointer; display: flex; align-items: center; gap: .5rem; }
+    .btn:hover { background: #1b5e20; }
+    .btn:disabled { background: #aaa; cursor: not-allowed; }
+    .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite; display: none; }
+    .spinner.active { display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .alert { padding: .75rem 1rem; border-radius: 5px; font-size: .875rem; margin-bottom: 1rem; }
+    .alert.error { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+    .alert.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+    .period { font-size: .875rem; color: #555; margin-bottom: .75rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+    th { text-align: left; padding: .5rem .75rem; background: #f1f8f1; color: #2e7d32; font-weight: 600; border-bottom: 2px solid #c8e6c9; }
+    td { padding: .5rem .75rem; border-bottom: 1px solid #f0f0f0; }
+    tr:last-child td { border-bottom: none; }
+    .badge { display: inline-block; padding: .15rem .5rem; border-radius: 12px; font-size: .75rem; background: #e8f5e9; color: #2e7d32; }
+    pre { background: #f8f8f8; border: 1px solid #e0e0e0; border-radius: 5px; padding: 1rem; font-size: .8rem; overflow-x: auto; white-space: pre-wrap; }
+    .empty { color: #999; font-size: .875rem; font-style: italic; }
+  </style>
+</head>
+<body>
+  <header><h1>🍽️ Mealie AI Planner</h1></header>
+
+  <div class="container">
+
+    <div class="card">
+      <h2>Configuration active</h2>
+      <div class="config-grid" id="config-display">
+        <span class="label">Chargement...</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Lancer une génération</h2>
+      <div id="generate-alert" style="display:none"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="start-date">Date de départ</label>
+          <input type="date" id="start-date" />
+        </div>
+        <div class="form-group">
+          <label for="planning-days">Nombre de jours</label>
+          <input type="number" id="planning-days" min="1" max="30" value="7" style="width:90px" />
+        </div>
+        <button class="btn" id="generate-btn" onclick="generate()">
+          <span class="spinner" id="spinner"></span>
+          🍽️ Générer les menus
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Dernier planning généré</h2>
+      <div id="last-status-content"><p class="empty">Aucune génération effectuée.</p></div>
+    </div>
+
+    <div class="card">
+      <h2>Automatisation Home Assistant</h2>
+      <pre>rest_command:
+  generate_mealie_menu:
+    url: "http://localhost:8099/api/generate"
+    method: POST
+    content_type: "application/json"
+    payload: >-
+      {"start_date": "{{ '{{' }} (now() + timedelta(days=1)).strftime('%Y-%m-%d') {{ '}}' }}",
+       "planning_days": 7}
+
+automation:
+  - alias: "Générer menus semaine"
+    trigger:
+      platform: time
+      at: "15:00:00"
+    condition:
+      condition: time
+      weekday:
+        - wed
+    action:
+      service: rest_command.generate_mealie_menu</pre>
+    </div>
+
+  </div>
+
+  <script>
+    const MEAL_LABELS = { breakfast: "Petit-déjeuner", lunch: "Déjeuner", dinner: "Dîner", side: "Accompagnement", snack: "Collation", drink: "Boisson", dessert: "Dessert" };
+
+    function tomorrow() {
+      const d = new Date(); d.setDate(d.getDate() + 1);
+      return d.toISOString().slice(0, 10);
+    }
+
+    async function loadConfig() {
+      try {
+        const r = await fetch("/api/config");
+        const cfg = await r.json();
+        const grid = document.getElementById("config-display");
+        grid.innerHTML = `
+          <span class="label">Localisation</span><span class="value">${cfg.location || "-"}</span>
+          <span class="label">Repas semaine</span><span class="value">${(cfg.weekday_meals || []).join(", ")}</span>
+          <span class="label">Repas week-end</span><span class="value">${(cfg.weekend_meals || []).join(", ")}</span>
+          <span class="label">Modèle OpenAI</span><span class="value">${cfg.openai_model || "-"}</span>
+          <span class="label">Éviter répétition</span><span class="value">${cfg.avoid_repeat_days} jours</span>
+          <span class="label">Jours par défaut</span><span class="value">${cfg.default_planning_days}</span>
+        `;
+        document.getElementById("planning-days").value = cfg.default_planning_days || 7;
+      } catch(e) { console.error("Erreur config:", e); }
+    }
+
+    async function loadStatus() {
+      try {
+        const r = await fetch("/api/status");
+        const s = await r.json();
+        if (!s.generated) return;
+        renderStatus(s);
+      } catch(e) { console.error("Erreur status:", e); }
+    }
+
+    function renderStatus(s) {
+      const el = document.getElementById("last-status-content");
+      if (s.error) {
+        el.innerHTML = `<div class="alert error">Erreur : ${s.error}</div>`;
+        return;
+      }
+      const endDate = s.end_date || "-";
+      let html = `<p class="period">Période : <strong>${s.start_date}</strong> → <strong>${endDate}</strong> — ${s.count} repas planifiés`;
+      if (s.timestamp) html += ` (généré le ${new Date(s.timestamp).toLocaleString("fr-FR")})`;
+      html += `</p>`;
+      if (s.errors && s.errors.length) {
+        html += `<div class="alert error" style="margin-bottom:.75rem">${s.errors.join("<br>")}</div>`;
+      }
+      if (s.meals && s.meals.length) {
+        html += `<table><thead><tr><th>Date</th><th>Type</th><th>Recette</th></tr></thead><tbody>`;
+        for (const m of s.meals) {
+          html += `<tr><td>${m.date}</td><td><span class="badge">${MEAL_LABELS[m.meal_type] || m.meal_type}</span></td><td>${m.recipe}</td></tr>`;
+        }
+        html += `</tbody></table>`;
+      } else {
+        html += `<p class="empty">Aucun repas créé.</p>`;
+      }
+      el.innerHTML = html;
+    }
+
+    async function generate() {
+      const btn = document.getElementById("generate-btn");
+      const spinner = document.getElementById("spinner");
+      const alertEl = document.getElementById("generate-alert");
+
+      const startDate = document.getElementById("start-date").value;
+      const planningDays = parseInt(document.getElementById("planning-days").value);
+
+      alertEl.style.display = "none";
+      btn.disabled = true;
+      spinner.classList.add("active");
+
+      try {
+        const r = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ start_date: startDate, planning_days: planningDays }),
+        });
+        const data = await r.json();
+        if (r.ok && data.success) {
+          alertEl.className = "alert success";
+          alertEl.textContent = `✓ ${data.count} repas générés avec succès.`;
+          alertEl.style.display = "block";
+          renderStatus(data);
+        } else {
+          alertEl.className = "alert error";
+          alertEl.textContent = `Erreur : ${data.error || "Inconnue"}`;
+          alertEl.style.display = "block";
+        }
+      } catch(e) {
+        alertEl.className = "alert error";
+        alertEl.textContent = `Erreur réseau : ${e.message}`;
+        alertEl.style.display = "block";
+      } finally {
+        btn.disabled = false;
+        spinner.classList.remove("active");
+      }
+    }
+
+    document.getElementById("start-date").value = tomorrow();
+    loadConfig();
+    loadStatus();
+  </script>
+</body>
+</html>

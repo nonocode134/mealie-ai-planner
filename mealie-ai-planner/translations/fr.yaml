@@ -1,0 +1,30 @@
+configuration:
+  mealie_url:
+    name: "URL Mealie"
+    description: "URL de votre instance Mealie (ex: http://192.168.1.x:9925)"
+  mealie_token:
+    name: "Token API Mealie"
+    description: "Bearer token d'authentification Mealie"
+  openai_api_key:
+    name: "Clé API OpenAI"
+    description: "Clé secrète OpenAI (sk-...)"
+  openai_model:
+    name: "Modèle OpenAI"
+    description: "Modèle à utiliser (gpt-4o, gpt-4o-mini, gpt-4-turbo...)"
+  location:
+    name: "Localisation"
+    description: "Ville et pays pour adapter les suggestions à la saison (ex: Lausanne, Suisse)"
+  default_planning_days:
+    name: "Nombre de jours par défaut"
+    description: "Nombre de jours à planifier par défaut"
+  weekday_meals:
+    name: "Repas en semaine"
+    description: "Types de repas à planifier en semaine (dinner, lunch, breakfast...)"
+  weekend_meals:
+    name: "Repas le week-end"
+    description: "Types de repas à planifier le week-end (dinner, lunch, breakfast...)"
+  avoid_repeat_days:
+    name: "Éviter les répétitions"
+    description: "Ne pas répéter une recette vue dans les X derniers jours"
+network:
+  8099/tcp: "Interface web Mealie AI Planner"
