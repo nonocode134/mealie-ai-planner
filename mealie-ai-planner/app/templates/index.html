@@ -108,10 +108,19 @@ automation:
       return d.toISOString().slice(0, 10);
     }
 
+    async function apiFetch(path, options) {
+      const r = await fetch(path, options);
+      const text = await r.text();
+      try {
+        return { ok: r.ok, status: r.status, data: JSON.parse(text) };
+      } catch(_) {
+        return { ok: false, status: r.status, data: null, raw: text };
+      }
+    }
+
     async function loadConfig() {
       try {
-        const r = await fetch("/api/config");
-        const cfg = await r.json();
+        const { data: cfg } = await apiFetch("api/config");
         const grid = document.getElementById("config-display");
         grid.innerHTML = `
           <span class="label">Localisation</span><span class="value">${cfg.location || "-"}</span>
@@ -127,8 +136,7 @@ automation:
 
     async function loadStatus() {
       try {
-        const r = await fetch("/api/status");
-        const s = await r.json();
+        const { data: s } = await apiFetch("api/status");
         if (!s.generated) return;
         renderStatus(s);
       } catch(e) { console.error("Erreur status:", e); }
@@ -172,13 +180,16 @@ automation:
       spinner.classList.add("active");
 
       try {
-        const r = await fetch("/api/generate", {
+        const { ok, data, raw } = await apiFetch("api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ start_date: startDate, planning_days: planningDays }),
         });
-        const data = await r.json();
-        if (r.ok && data.success) {
+        if (!data) {
+          alertEl.className = "alert error";
+          alertEl.textContent = `Réponse invalide du serveur : ${raw ? raw.slice(0, 300) : "(vide)"}`;
+          alertEl.style.display = "block";
+        } else if (ok && data.success) {
           alertEl.className = "alert success";
           alertEl.textContent = `✓ ${data.count} repas générés avec succès.`;
           alertEl.style.display = "block";
