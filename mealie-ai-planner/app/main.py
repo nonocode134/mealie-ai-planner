@@ -44,11 +44,12 @@ def generate():
     tomorrow = (date.today() + timedelta(days=1)).isoformat()
     start_date = body.get("start_date", tomorrow)
     planning_days = int(body.get("planning_days", CONFIG.get("default_planning_days", 7)))
+    custom_instructions = body.get("custom_instructions", None)
 
     print(f"[INFO] Génération demandée : {start_date} sur {planning_days} jours")
 
     try:
-        result = generate_plan(CONFIG, start_date, planning_days)
+        result = generate_plan(CONFIG, start_date, planning_days, custom_instructions)
         result["timestamp"] = datetime.now().isoformat()
         LAST_STATUS.update(result)
         LAST_STATUS["generated"] = True

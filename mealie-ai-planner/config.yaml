@@ -31,6 +31,10 @@ options:
     - lunch
     - dinner
   avoid_repeat_days: 14
+  custom_instructions:
+    - "Favorise les repas faciles et rapides en semaine"
+    - "Des repas simples le midi du week-end, plus festifs le soir du week-end"
+    - "Ne répète pas la même viande deux jours de suite"
 schema:
   mealie_url: str
   mealie_token: str
@@ -43,3 +47,5 @@ schema:
   weekend_meals:
     - str
   avoid_repeat_days: int
+  custom_instructions:
+    - str

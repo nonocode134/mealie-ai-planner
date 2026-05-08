@@ -12,10 +12,12 @@
     .container { max-width: 860px; margin: 1.5rem auto; padding: 0 1rem; display: flex; flex-direction: column; gap: 1.5rem; }
     .card { background: white; border-radius: 8px; padding: 1.25rem 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
     .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; color: #2e7d32; border-bottom: 1px solid #e0e0e0; padding-bottom: .5rem; }
-    .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem .75rem; font-size: .875rem; }
+    .config-grid { display: grid; grid-template-columns: auto 1fr; gap: .5rem .75rem; font-size: .875rem; }
     .config-grid .label { color: #666; }
     .config-grid .value { font-weight: 500; }
     .form-row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 1rem; }
+    textarea { width: 100%; padding: .45rem .6rem; border: 1px solid #ccc; border-radius: 5px; font-size: .875rem; font-family: inherit; resize: vertical; }
+    .field-hint { font-size: .75rem; color: #888; margin-top: .2rem; }
     .form-group { display: flex; flex-direction: column; gap: .3rem; }
     .form-group label { font-size: .8rem; color: #555; font-weight: 500; }
     .form-group input { padding: .45rem .6rem; border: 1px solid #ccc; border-radius: 5px; font-size: .9rem; }
@@ -62,11 +64,16 @@
           <label for="planning-days">Nombre de jours</label>
           <input type="number" id="planning-days" min="1" max="30" value="7" style="width:90px" />
         </div>
-        <button class="btn" id="generate-btn" onclick="generate()">
-          <span class="spinner" id="spinner"></span>
-          🍽️ Générer les menus
-        </button>
       </div>
+      <div class="form-group" style="margin-bottom:1rem">
+        <label for="custom-instructions">Instructions pour l'IA</label>
+        <textarea id="custom-instructions" rows="4" placeholder="Une instruction par ligne…"></textarea>
+        <p class="field-hint">Pré-rempli depuis la configuration. Modifiable avant chaque génération.</p>
+      </div>
+      <button class="btn" id="generate-btn" onclick="generate()">
+        <span class="spinner" id="spinner"></span>
+        🍽️ Générer les menus
+      </button>
     </div>
 
     <div class="card">
@@ -122,6 +129,7 @@ automation:
       try {
         const { data: cfg } = await apiFetch("api/config");
         const grid = document.getElementById("config-display");
+        const instructions = cfg.custom_instructions || [];
         grid.innerHTML = `
           <span class="label">Localisation</span><span class="value">${cfg.location || "-"}</span>
           <span class="label">Repas semaine</span><span class="value">${(cfg.weekday_meals || []).join(", ")}</span>
@@ -131,6 +139,7 @@ automation:
           <span class="label">Jours par défaut</span><span class="value">${cfg.default_planning_days}</span>
         `;
         document.getElementById("planning-days").value = cfg.default_planning_days || 7;
+        document.getElementById("custom-instructions").value = instructions.join("\n");
       } catch(e) { console.error("Erreur config:", e); }
     }
 
@@ -174,6 +183,8 @@ automation:
 
       const startDate = document.getElementById("start-date").value;
       const planningDays = parseInt(document.getElementById("planning-days").value);
+      const instructionsRaw = document.getElementById("custom-instructions").value;
+      const customInstructions = instructionsRaw.split("\n").map(l => l.trim()).filter(l => l.length > 0);
 
       alertEl.style.display = "none";
       btn.disabled = true;
@@ -183,7 +194,7 @@ automation:
         const { ok, data, raw } = await apiFetch("api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ start_date: startDate, planning_days: planningDays }),
+          body: JSON.stringify({ start_date: startDate, planning_days: planningDays, custom_instructions: customInstructions }),
         });
         if (!data) {
           alertEl.className = "alert error";

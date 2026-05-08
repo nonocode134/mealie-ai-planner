@@ -26,5 +26,8 @@ configuration:
   avoid_repeat_days:
     name: "Éviter les répétitions"
     description: "Ne pas répéter une recette vue dans les X derniers jours"
+  custom_instructions:
+    name: "Instructions personnalisées"
+    description: "Instructions supplémentaires transmises à l'IA lors de la génération (ex: favorise les repas rapides en semaine)"
 network:
   8099/tcp: "Interface web Mealie AI Planner"

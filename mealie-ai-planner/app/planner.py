@@ -30,7 +30,7 @@ def _build_day_schedule(config, start_date, planning_days):
     return schedule
 
 
-def generate_plan(config, start_date_str, planning_days):
+def generate_plan(config, start_date_str, planning_days, custom_instructions=None):
     start_date = date.fromisoformat(start_date_str)
     end_date = start_date + timedelta(days=planning_days - 1)
 
@@ -55,6 +55,10 @@ def generate_plan(config, start_date_str, planning_days):
     season = _get_season(start_date)
     location = config.get("location", "Lausanne, Suisse")
     schedule = _build_day_schedule(config, start_date, planning_days)
+
+    if custom_instructions is None:
+        custom_instructions = config.get("custom_instructions", [])
+    instructions_text = "\n".join(f"- {i}" for i in custom_instructions) if custom_instructions else ""
 
     recipe_list_text = "\n".join(
         f"- {r['name']} (slug: {r['slug']})" + (f" [tags: {', '.join(r['tags'])}]" if r["tags"] else "")
@@ -88,6 +92,7 @@ RÈGLES :
 - Ne répète pas les recettes à éviter
 - Varie les types de plats (viande, poisson, végétarien...)
 - Adapte les recettes à la saison
+{instructions_text}
 
 Réponds uniquement avec ce JSON :
 {{"meal_plan": [{{"date": "YYYY-MM-DD", "meal_type": "dinner", "recipe_slug": "slug-ici"}}]}}"""
